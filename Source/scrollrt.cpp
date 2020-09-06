@@ -30,13 +30,6 @@ BYTE *gpBufStart;
 BYTE *gpBufEnd;
 DWORD sgdwCursHgt;
 
-/**
- * Specifies the current MIN block of the level CEL file, as used during rendering of the level tiles.
- *
- * frameNum  := block & 0x0FFF
- * frameType := block & 0x7000 >> 12
- */
-DWORD level_cel_block;
 DWORD sgdwCursXOld;
 DWORD sgdwCursYOld;
 /**
@@ -538,6 +531,7 @@ static void drawCell(int x, int y, int sx, int sy)
 {
 	BYTE *dst;
 	MICROS *pMap;
+	DWORD level_cel_block;
 
 	dst = &gpBuffer[sx + sy * BUFFER_WIDTH];
 	pMap = &dpiece_defs_map_2[x][y];
@@ -548,12 +542,12 @@ static void drawCell(int x, int y, int sx, int sy)
 		level_cel_block = pMap->mt[2 * i];
 		if (level_cel_block != 0) {
 			arch_draw_type = i == 0 ? 1 : 0;
-			RenderTile(dst);
+			RenderTile(dst,level_cel_block);
 		}
 		level_cel_block = pMap->mt[2 * i + 1];
 		if (level_cel_block != 0) {
 			arch_draw_type = i == 0 ? 2 : 0;
-			RenderTile(dst + TILE_WIDTH / 2);
+			RenderTile(dst + TILE_WIDTH / 2, level_cel_block);
 		}
 		dst -= BUFFER_WIDTH * TILE_HEIGHT;
 	}
@@ -569,6 +563,8 @@ static void drawCell(int x, int y, int sx, int sy)
  */
 static void drawFloor(int x, int y, int sx, int sy)
 {
+	DWORD level_cel_block;
+	
 	cel_transparency_active = 0;
 	light_table_index = dLight[x][y];
 #ifdef PIXEL_LIGHT
@@ -581,12 +577,12 @@ static void drawFloor(int x, int y, int sx, int sy)
 	arch_draw_type = 1; // Left
 	level_cel_block = dpiece_defs_map_2[x][y].mt[0];
 	if (level_cel_block != 0) {
-		RenderTile(dst);
+		RenderTile(dst, level_cel_block);
 	}
 	arch_draw_type = 2; // Right
 	level_cel_block = dpiece_defs_map_2[x][y].mt[1];
 	if (level_cel_block != 0) {
-		RenderTile(dst + TILE_WIDTH / 2);
+		RenderTile(dst + TILE_WIDTH / 2, level_cel_block);
 	}
 }
 

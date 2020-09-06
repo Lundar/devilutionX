@@ -184,7 +184,7 @@ __attribute__((no_sanitize("shift-base")))
  * @brief Blit current world CEL to the given buffer
  * @param pBuff Output buffer
  */
-void RenderTile(BYTE *pBuff)
+void RenderTile(BYTE *pBuff, DWORD level_cel_block)
 {
 	int i, j;
 	char c, v, tile;

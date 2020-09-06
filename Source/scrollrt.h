@@ -26,7 +26,6 @@ extern std::map<std::string, int> lightColorMap;
 #endif
 extern BYTE *gpBufStart;
 extern BYTE *gpBufEnd;
-extern DWORD level_cel_block;
 extern char arch_draw_type;
 extern int cel_transparency_active;
 extern int cel_foliage_active;
