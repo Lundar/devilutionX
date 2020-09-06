@@ -521,6 +521,37 @@ void DoLighting(int nXPos, int nYPos, int nRadius, int Lnum)
 	block_x = 0;
 	block_y = 0;
 
+#ifdef PIXEL_LIGHT
+	if (Lnum == -1) {
+		bool updated = false;
+		int color = lightColorMap["STATICLIGHT"];
+		if (setlevel && setlvlnum == SL_POISONWATER) {
+			if (quests[Q_PWATER]._qactive == QUEST_DONE) {
+				color = lightColorMap["CLEAREDWATER"];
+			} else {
+				color = lightColorMap["POISONEDWATER"];
+			}
+		}
+		for (int i = 0; i < staticLights[currlevel + setlvlnum * (32 * setlevel)].size(); i++) {
+			LightListStruct *it = &staticLights[currlevel + setlvlnum * (32 * setlevel)][i];
+			if (it->_lx == nXPos && it->_ly == nYPos) {
+				it->_lradius = nRadius;
+				it->_lcolor = color;
+				updated = true;
+				break;
+			}
+		}
+		if (!updated){
+			LightListStruct tmp;
+			tmp._lx = nXPos;
+			tmp._ly = nYPos;
+			tmp._lradius = nRadius;
+			tmp._lcolor = color;
+			staticLights[currlevel + setlvlnum * (32 * setlevel)].push_back(tmp);
+		}
+	}
+
+#endif
 	if (Lnum >= 0) {
 		xoff = LightList[Lnum]._xoff;
 		yoff = LightList[Lnum]._yoff;
@@ -1017,7 +1048,11 @@ void InitLighting()
 	}
 }
 
+#ifdef PIXEL_LIGHT
+int AddLight(int x, int y, int r, int color)
+#else
 int AddLight(int x, int y, int r)
+#endif
 {
 	int lid;
 
@@ -1036,6 +1071,11 @@ int AddLight(int x, int y, int r)
 		LightList[lid]._yoff = 0;
 		LightList[lid]._ldel = FALSE;
 		LightList[lid]._lunflag = FALSE;
+
+#ifdef PIXEL_LIGHT
+		LightList[lid]._lcolor = color;
+#endif
+
 		dolighting = TRUE;
 	}
 

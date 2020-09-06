@@ -1208,6 +1208,31 @@ void InitMissiles()
 	}
 }
 
+#ifdef PIXEL_LIGHT
+void AddFArrow(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)
+{
+	if (sx == dx && sy == dy) {
+		dx += XDirAdd[midir];
+		dy += YDirAdd[midir];
+	}
+	if (!mienemy) {
+		if (plr[id]._pClass == PC_ROGUE)
+			GetMissileVel(mi, sx, sy, dx, dy, (plr[id]._pLevel >> 2) + 31);
+		else if (plr[id]._pClass == PC_WARRIOR)
+			GetMissileVel(mi, sx, sy, dx, dy, (plr[id]._pLevel >> 3) + 31);
+		else
+			GetMissileVel(mi, sx, sy, dx, dy, 32);
+	} else
+		GetMissileVel(mi, sx, sy, dx, dy, 32);
+
+	SetMissDir(mi, GetDirection16(sx, sy, dx, dy));
+	missile[mi]._mirange = 256;
+	missile[mi]._miVar1 = sx;
+	missile[mi]._miVar2 = sy;
+	missile[mi]._mlid = AddLight(sx, sy, 5, lightColorMap["FIREARROW"]);
+}
+
+#endif
 void AddLArrow(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)
 {
 	if (sx == dx && sy == dy) {
@@ -1228,7 +1253,11 @@ void AddLArrow(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, 
 	missile[mi]._mirange = 256;
 	missile[mi]._miVar1 = sx;
 	missile[mi]._miVar2 = sy;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 5, lightColorMap["LIGHTNINGARROW"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 5);
+#endif
 }
 
 void AddArrow(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)
@@ -1348,7 +1377,11 @@ void AddFirebolt(int mi, int sx, int sy, int dx, int dy, int midir, char micaste
 	missile[mi]._mirange = 256;
 	missile[mi]._miVar1 = sx;
 	missile[mi]._miVar2 = sy;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["FIREBOLT"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 8);
+#endif
 }
 
 void AddMagmaball(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)
@@ -1360,7 +1393,11 @@ void AddMagmaball(int mi, int sx, int sy, int dx, int dy, int midir, char mienem
 	missile[mi]._mirange = 256;
 	missile[mi]._miVar1 = sx;
 	missile[mi]._miVar2 = sy;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["MAGMABALL"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 8);
+#endif
 }
 
 void miss_null_33(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)
@@ -1463,7 +1500,11 @@ void AddFireball(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy
 	missile[mi]._miVar3 = 0;
 	missile[mi]._miVar4 = sx;
 	missile[mi]._miVar5 = sy;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["FIREBALL"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 8);
+#endif
 }
 
 void AddLightctrl(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)
@@ -1497,7 +1538,11 @@ void AddLightning(int mi, int sx, int sy, int dx, int dy, int midir, char mienem
 	} else {
 		missile[mi]._mirange = (missile[mi]._mispllvl >> 1) + 6;
 	}
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(missile[mi]._mix, missile[mi]._miy, 4, lightColorMap["LIGHTNING"]);
+#else
 	missile[mi]._mlid = AddLight(missile[mi]._mix, missile[mi]._miy, 4);
+#endif
 }
 
 void AddMisexp(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)
@@ -1724,7 +1769,11 @@ void AddGuardian(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy
 
 	if (missile[mi]._miDelFlag != TRUE) {
 		missile[mi]._misource = id;
+#ifdef PIXEL_LIGHT
+		missile[mi]._mlid = AddLight(missile[mi]._mix, missile[mi]._miy, 1, lightColorMap["GUARDIAN"]);
+#else
 		missile[mi]._mlid = AddLight(missile[mi]._mix, missile[mi]._miy, 1);
+#endif
 		missile[mi]._mirange = missile[mi]._mispllvl + (plr[id]._pLevel >> 1);
 		missile[mi]._mirange += (missile[mi]._mirange * plr[id]._pISplDur) >> 7;
 
@@ -1847,8 +1896,13 @@ void AddFlare(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, i
 	missile[mi]._mirange = 256;
 	missile[mi]._miVar1 = sx;
 	missile[mi]._miVar2 = sy;
+#ifndef PIXEL_LIGHT
 	missile[mi]._mlid = AddLight(sx, sy, 8);
+#endif
 	if (!mienemy) {
+#ifdef PIXEL_LIGHT
+		missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["BLOODSTAR_RED"]);
+#endif
 		UseMana(id, SPL_FLARE);
 		plr[id]._pHitPoints -= 320;
 		plr[id]._pHPBase -= 320;
@@ -1857,14 +1911,30 @@ void AddFlare(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, i
 			SyncPlrKill(id, 0);
 	} else {
 		if (id > 0) {
-			if (monster[id].MType->mtype == MT_SUCCUBUS)
+			if (monster[id].MType->mtype == MT_SUCCUBUS) {
 				SetMissAnim(mi, MFILE_FLARE);
-			if (monster[id].MType->mtype == MT_SNOWWICH)
+#ifdef PIXEL_LIGHT
+				missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["BLOODSTAR_RED"]);
+#endif
+			}
+			if (monster[id].MType->mtype == MT_SNOWWICH) {
 				SetMissAnim(mi, MFILE_SCUBMISB);
-			if (monster[id].MType->mtype == MT_HLSPWN)
+#ifdef PIXEL_LIGHT
+				missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["BLOODSTAR_BLUE"]);
+#endif
+			}
+			if (monster[id].MType->mtype == MT_HLSPWN) {
 				SetMissAnim(mi, MFILE_SCUBMISD);
-			if (monster[id].MType->mtype == MT_SOLBRNR)
+#ifdef PIXEL_LIGHT
+				missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["BLOODSTAR_RED"]);
+#endif
+			}
+			if (monster[id].MType->mtype == MT_SOLBRNR) {
 				SetMissAnim(mi, MFILE_SCUBMISC);
+#ifdef PIXEL_LIGHT
+				missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["BLOODSTAR_YELLOW"]);
+#endif
+			}
 		}
 	}
 }
@@ -1874,7 +1944,11 @@ void AddAcid(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, in
 	GetMissileVel(mi, sx, sy, dx, dy, 16);
 	SetMissDir(mi, GetDirection16(sx, sy, dx, dy));
 	missile[mi]._mirange = 5 * (monster[id]._mint + 4);
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 1, lightColorMap["ACIDMISSILE"]);
+#else
 	missile[mi]._mlid = -1;
+#endif
 	missile[mi]._miVar1 = sx;
 	missile[mi]._miVar2 = sy;
 	PutMissile(mi);
@@ -1899,6 +1973,9 @@ void AddAcidpud(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy,
 	missile[mi]._mixoff = 0;
 	missile[mi]._miyoff = 0;
 	missile[mi]._miLightFlag = TRUE;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 1, lightColorMap["ACIDPUDDLE"]);
+#endif
 	monst = missile[mi]._misource;
 	missile[mi]._mirange = random_(50, 15) + 40 * (monster[monst]._mint + 1);
 	missile[mi]._miPreFlag = TRUE;
@@ -2088,7 +2165,11 @@ void AddElement(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy,
 	missile[mi]._miVar3 = 0;
 	missile[mi]._miVar4 = dx;
 	missile[mi]._miVar5 = dy;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["ELEMENTAL"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 8);
+#endif
 	UseMana(id, SPL_ELEMENT);
 }
 
@@ -2288,7 +2369,11 @@ void AddFlame(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, i
 	missile[mi]._mitxoff = missile[midir]._mitxoff;
 	missile[mi]._mityoff = missile[midir]._mityoff;
 	missile[mi]._mirange = missile[mi]._miVar2 + 20;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 1, lightColorMap["INFERNO"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 1);
+#endif
 	if (!mienemy) {
 		i = random_(79, plr[id]._pLevel) + random_(79, 2);
 		missile[mi]._midam = 8 * i + 16 + ((8 * i + 16) >> 1);
@@ -2335,7 +2420,11 @@ void AddCbolt(int mi, int sx, int sy, int dx, int dy, int midir, char micaster, 
 	}
 
 	missile[mi]._miAnimFrame = random_(63, 8) + 1;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 5, lightColorMap["CHARGEDBOLT"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 5);
+#endif
 
 	GetMissileVel(mi, sx, sy, dx, dy, 8);
 	missile[mi]._miVar1 = 5;
@@ -2365,7 +2454,11 @@ void AddHbolt(int mi, int sx, int sy, int dx, int dy, int midir, char micaster, 
 	missile[mi]._mirange = 256;
 	missile[mi]._miVar1 = sx;
 	missile[mi]._miVar2 = sy;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["HOLYBOLT"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 8);
+#endif
 	missile[mi]._midam = random_(69, 10) + plr[id]._pLevel + 9;
 	UseMana(id, SPL_HBOLT);
 }
@@ -2415,7 +2508,11 @@ void AddBoneSpirit(int mi, int sx, int sy, int dx, int dy, int midir, char miene
 	missile[mi]._miVar3 = 0;
 	missile[mi]._miVar4 = dx;
 	missile[mi]._miVar5 = dy;
+#ifdef PIXEL_LIGHT
+	missile[mi]._mlid = AddLight(sx, sy, 8, lightColorMap["BONESPIRIT"]);
+#else
 	missile[mi]._mlid = AddLight(sx, sy, 8);
+#endif
 	if (!mienemy) {
 		UseMana(id, SPL_BONESPIRIT);
 		plr[id]._pHitPoints -= 384;
@@ -2824,6 +2921,9 @@ void MI_Acidpud(int i)
 	if (!range) {
 		if (missile[i]._mimfnum) {
 			missile[i]._miDelFlag = TRUE;
+#ifdef PIXEL_LIGHT
+			AddUnLight(missile[i]._mlid);
+#endif
 		} else {
 			SetMissDir(i, 1);
 			missile[i]._mirange = missile[i]._miAnimLen;
@@ -2853,7 +2953,11 @@ void MI_Firewall(int i)
 	}
 	if (missile[i]._mimfnum && missile[i]._mirange && missile[i]._miAnimAdd != -1 && missile[i]._miVar2 < 12) {
 		if (!missile[i]._miVar2)
+#ifdef PIXEL_LIGHT
+			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, ExpLight[0], lightColorMap["FIREWALL"]);
+#else
 			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, ExpLight[0]);
+#endif
 		ChangeLight(missile[i]._mlid, missile[i]._mix, missile[i]._miy, ExpLight[missile[i]._miVar2]);
 		missile[i]._miVar2++;
 	}
@@ -3054,7 +3158,11 @@ void MI_Town(int i)
 		SetMissDir(i, 1);
 	if (currlevel && missile[i]._mimfnum != 1 && missile[i]._mirange) {
 		if (!missile[i]._miVar2)
+#ifdef PIXEL_LIGHT
+			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, 1, lightColorMap["TOWNPORTAL"]);
+#else
 			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, 1);
+#endif
 		ChangeLight(missile[i]._mlid, missile[i]._mix, missile[i]._miy, ExpLight[missile[i]._miVar2]);
 		missile[i]._miVar2++;
 	}
@@ -3258,7 +3366,11 @@ void MI_Firemove(int i)
 		}
 	} else {
 		if (!missile[i]._miVar2)
+#ifdef PIXEL_LIGHT
+			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, ExpLight[0], lightColorMap["FLAMEWAVE"]);
+#else
 			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, ExpLight[0]);
+#endif
 		ChangeLight(missile[i]._mlid, missile[i]._mix, missile[i]._miy, ExpLight[missile[i]._miVar2]);
 		missile[i]._miVar2++;
 	}
@@ -4049,7 +4161,11 @@ void MI_Rportal(int i)
 
 	if (currlevel && missile[i]._mimfnum != 1 && missile[i]._mirange != 0) {
 		if (!missile[i]._miVar2)
+#ifdef PIXEL_LIGHT
+			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, 1, lightColorMap["REDPORTAL"]);
+#else
 			missile[i]._mlid = AddLight(missile[i]._mix, missile[i]._miy, 1);
+#endif
 		ChangeLight(missile[i]._mlid, missile[i]._mix, missile[i]._miy, ExpLight[missile[i]._miVar2]);
 		missile[i]._miVar2++;
 	}

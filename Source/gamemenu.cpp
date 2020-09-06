@@ -111,9 +111,16 @@ void gamemenu_new_game(BOOL bActivate)
 
 	deathflag = FALSE;
 	force_redraw = 255;
+#ifdef PIXEL_LIGHT
+	//deals with the transition when choosing new game from ingame menu
+	redrawLights = 1;
+#endif
 	scrollrt_draw_game_screen(TRUE);
 	gbRunGame = FALSE;
 	gamemenu_off();
+#ifdef PIXEL_LIGHT
+	staticLights.clear();
+#endif
 }
 
 void gamemenu_quit_game(BOOL bActivate)

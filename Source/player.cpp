@@ -905,7 +905,13 @@ void InitPlayer(int pnum, BOOL FirstTime)
 		plr[pnum].destAction = ACTION_NONE;
 
 		if (pnum == myplr) {
+
+#ifdef PIXEL_LIGHT
+			plr[pnum]._plid = AddLight(plr[pnum]._px, plr[pnum]._py, plr[pnum]._pLightRad, lightColorMap["PLAYERLIGHT"]);
+#else
 			plr[pnum]._plid = AddLight(plr[pnum]._px, plr[pnum]._py, plr[pnum]._pLightRad);
+#endif
+
 		} else {
 			plr[pnum]._plid = -1;
 		}
@@ -1359,6 +1365,11 @@ void StartWalk3(int pnum, int xvel, int yvel, int xoff, int yoff, int xadd, int 
 		ChangeLightXY(plr[pnum]._plid, x, y);
 		PM_ChangeLightOff(pnum);
 	}
+#ifdef PIXEL_LIGHT
+	else {
+		PM_ChangeLightOff(pnum);
+	}
+#endif
 
 	plr[pnum]._pmode = PM_WALK3;
 	plr[pnum]._pxvel = xvel;
@@ -2085,6 +2096,11 @@ BOOL PM_DoWalk(int pnum)
 			ChangeLightXY(plr[pnum]._plid, plr[pnum]._px, plr[pnum]._py);
 			ChangeVisionXY(plr[pnum]._pvid, plr[pnum]._px, plr[pnum]._py);
 		}
+#ifdef PIXEL_LIGHT
+		else {
+			ChangeLightXY(plr[pnum]._plid, plr[pnum]._px, plr[pnum]._py);
+		}
+#endif
 
 		if (pnum == myplr && ScrollInfo._sdir) {
 			ViewX = plr[pnum]._px - ScrollInfo._sdx;
@@ -2102,6 +2118,11 @@ BOOL PM_DoWalk(int pnum)
 		if (leveltype != DTYPE_TOWN) {
 			ChangeLightOff(plr[pnum]._plid, 0, 0);
 		}
+#ifdef PIXEL_LIGHT
+		else {
+			ChangeLightOff(plr[pnum]._plid, 0, 0);
+		}
+#endif
 		rv = TRUE;
 	} else {
 		PM_ChangeOffset(pnum);
@@ -2138,6 +2159,11 @@ BOOL PM_DoWalk2(int pnum)
 			ChangeLightXY(plr[pnum]._plid, plr[pnum]._px, plr[pnum]._py);
 			ChangeVisionXY(plr[pnum]._pvid, plr[pnum]._px, plr[pnum]._py);
 		}
+#ifdef PIXEL_LIGHT
+		else {
+			ChangeLightXY(plr[pnum]._plid, plr[pnum]._px, plr[pnum]._py);
+		}
+#endif
 
 		if (pnum == myplr && ScrollInfo._sdir) {
 			ViewX = plr[pnum]._px - ScrollInfo._sdx;
@@ -2154,6 +2180,11 @@ BOOL PM_DoWalk2(int pnum)
 		if (leveltype != DTYPE_TOWN) {
 			ChangeLightOff(plr[pnum]._plid, 0, 0);
 		}
+#ifdef PIXEL_LIGHT
+		else {
+			ChangeLightOff(plr[pnum]._plid, 0, 0);
+		}
+#endif
 		rv = TRUE;
 	} else {
 		PM_ChangeOffset(pnum);
@@ -2194,6 +2225,11 @@ BOOL PM_DoWalk3(int pnum)
 			ChangeLightXY(plr[pnum]._plid, plr[pnum]._px, plr[pnum]._py);
 			ChangeVisionXY(plr[pnum]._pvid, plr[pnum]._px, plr[pnum]._py);
 		}
+#ifdef PIXEL_LIGHT
+		else {
+			ChangeLightXY(plr[pnum]._plid, plr[pnum]._px, plr[pnum]._py);
+		}
+#endif
 
 		if (pnum == myplr && ScrollInfo._sdir) {
 			ViewX = plr[pnum]._px - ScrollInfo._sdx;
@@ -2211,6 +2247,11 @@ BOOL PM_DoWalk3(int pnum)
 		if (leveltype != DTYPE_TOWN) {
 			ChangeLightOff(plr[pnum]._plid, 0, 0);
 		}
+#ifdef PIXEL_LIGHT
+		else{
+			ChangeLightOff(plr[pnum]._plid, 0, 0);
+		}
+#endif
 		rv = TRUE;
 	} else {
 		PM_ChangeOffset(pnum);

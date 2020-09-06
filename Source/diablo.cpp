@@ -221,6 +221,10 @@ void run_game_loop(unsigned int uMsg)
 	NewCursor(CURSOR_NONE);
 	ClearScreenBuffer();
 	force_redraw = 255;
+#ifdef PIXEL_LIGHT
+	//deals with the transition while quitting diablo
+	redrawLights = 1;
+#endif
 	scrollrt_draw_game_screen(TRUE);
 	saveProc = SetWindowProc(saveProc);
 	assert(saveProc == GM_Game);
@@ -1210,6 +1214,7 @@ void PressChar(int vkey)
 		}
 		return;
 	case 'v':
+		SDL_Log("%d %d", plr[myplr]._px, plr[myplr]._py);
 		NetSendCmdString(1 << myplr, gszProductName);
 		return;
 	case 'V':
@@ -1217,30 +1222,55 @@ void PressChar(int vkey)
 		return;
 	case '!':
 	case '1':
+#if defined PIXEL_LIGHT && defined _DEBUG
+		testvar1 = ++testvar1 % 3;
+		CalcPlrItemVals(myplr, FALSE);
+		return;
+#endif
 		if (plr[myplr].SpdList[0]._itype != ITYPE_NONE && plr[myplr].SpdList[0]._itype != ITYPE_GOLD) {
 			UseInvItem(myplr, INVITEM_BELT_FIRST);
 		}
 		return;
 	case '@':
 	case '2':
+#if defined PIXEL_LIGHT && defined _DEBUG
+		testvar2 = ++testvar2 % 10;
+		CalcPlrItemVals(myplr, FALSE);
+		return;
+#endif
 		if (plr[myplr].SpdList[1]._itype != ITYPE_NONE && plr[myplr].SpdList[1]._itype != ITYPE_GOLD) {
 			UseInvItem(myplr, INVITEM_BELT_FIRST + 1);
 		}
 		return;
 	case '#':
 	case '3':
+#if defined PIXEL_LIGHT && defined _DEBUG
+		testvar3 = ++testvar3 % 2;
+		CalcPlrItemVals(myplr, FALSE);
+		return;
+#endif
 		if (plr[myplr].SpdList[2]._itype != ITYPE_NONE && plr[myplr].SpdList[2]._itype != ITYPE_GOLD) {
 			UseInvItem(myplr, INVITEM_BELT_FIRST + 2);
 		}
 		return;
 	case '$':
 	case '4':
+#if defined PIXEL_LIGHT && defined _DEBUG
+		testvar4 = ++testvar4 % 2;
+		CalcPlrItemVals(myplr, FALSE);
+		return;
+#endif
 		if (plr[myplr].SpdList[3]._itype != ITYPE_NONE && plr[myplr].SpdList[3]._itype != ITYPE_GOLD) {
 			UseInvItem(myplr, INVITEM_BELT_FIRST + 3);
 		}
 		return;
 	case '%':
 	case '5':
+#if defined PIXEL_LIGHT && defined _DEBUG
+		testvar5 = ++testvar5 % 4;
+		CalcPlrItemVals(myplr, FALSE);
+		return;
+#endif
 		if (plr[myplr].SpdList[4]._itype != ITYPE_NONE && plr[myplr].SpdList[4]._itype != ITYPE_GOLD) {
 			UseInvItem(myplr, INVITEM_BELT_FIRST + 4);
 		}
@@ -1497,6 +1527,11 @@ void LoadGameLevel(BOOL firstflag, int lvldir)
 		InitLighting();
 		InitVision();
 	}
+#ifdef PIXEL_LIGHT
+	else {
+		InitLighting();
+	}
+#endif
 
 	InitLevelMonsters();
 	IncProgress();
@@ -1671,6 +1706,11 @@ void LoadGameLevel(BOOL firstflag, int lvldir)
 		ProcessLightList();
 		ProcessVisionList();
 	}
+#ifdef PIXEL_LIGHT
+	else {
+		ProcessLightList();
+	}
+#endif
 
 	music_start(leveltype);
 
@@ -1721,6 +1761,9 @@ void game_logic()
 		ProcessLightList();
 		ProcessVisionList();
 	} else {
+#ifdef PIXEL_LIGHT
+		ProcessLightList();
+#endif
 		ProcessTowners();
 		ProcessItems();
 		ProcessMissiles();
@@ -1754,6 +1797,10 @@ void timeout_cursor(BOOL bTimeout)
 			NewCursor(CURSOR_HOURGLASS);
 			force_redraw = 255;
 		}
+#ifdef PIXEL_LIGHT
+		//deals with the lights while lagging
+		redrawLights = 1;
+#endif
 		scrollrt_draw_game_screen(TRUE);
 	} else if (sgnTimeoutCurs != CURSOR_NONE) {
 		NewCursor(sgnTimeoutCurs);

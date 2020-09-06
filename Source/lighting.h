@@ -39,7 +39,11 @@ void ToggleLighting();
 #endif
 void InitLightMax();
 void InitLighting();
+#ifdef PIXEL_LIGHT
+int AddLight(int x, int y, int r, int color = 0xFFFFFF);
+#else
 int AddLight(int x, int y, int r);
+#endif
 void AddUnLight(int i);
 void ChangeLightRadius(int i, int r);
 void ChangeLightXY(int i, int x, int y);

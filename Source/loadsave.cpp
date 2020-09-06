@@ -9,6 +9,9 @@ DEVILUTION_BEGIN_NAMESPACE
 
 BYTE *tbuff;
 
+#ifdef PIXEL_LIGHT
+void CopyInt(const void *src, void *dst);
+#endif
 void LoadGame(BOOL firstflag)
 {
 	int i, j;
@@ -167,6 +170,37 @@ void LoadGame(BOOL firstflag)
 	mem_free_dbg(LoadBuff);
 	AutomapZoomReset();
 	ResyncQuests();
+
+#ifdef PIXEL_LIGHT
+	staticLights.clear();
+	int mapSize;
+	LoadBuff = pfile_read("pixellight", &dwLen);
+	if (LoadBuff != NULL) {
+		tbuff = LoadBuff;
+		CopyInt(tbuff, &mapSize);
+		for (int i = 0; i < mapSize; i++) {
+			int key, vectorSize;
+			CopyInt(tbuff, &key);
+			CopyInt(tbuff, &vectorSize);
+			for (int j = 0; j < vectorSize; j++) {
+				LightListStruct tmpLight;
+				CopyInt(tbuff, &tmpLight._lx);
+				CopyInt(tbuff, &tmpLight._ly);
+				CopyInt(tbuff, &tmpLight._lradius);
+				CopyInt(tbuff, &tmpLight._lcolor);
+				staticLights[key].push_back(tmpLight);
+			}
+		}
+		if (leveltype == DTYPE_TOWN) {
+			numlights = WLoad();
+			for (i = 0; i < MAXLIGHTS; i++)
+				lightactive[i] = BLoad();
+			for (i = 0; i < numlights; i++)
+				LoadLighting(lightactive[i]);
+		}
+		mem_free_dbg(LoadBuff);
+	}
+#endif
 
 	if (leveltype != DTYPE_TOWN)
 		ProcessLightList();
@@ -786,7 +820,7 @@ void LoadLighting(int i)
 	CopyInt(tbuff, &pLight->_lid);
 	CopyInt(tbuff, &pLight->_ldel);
 	CopyInt(tbuff, &pLight->_lunflag);
-	CopyInt(tbuff, &pLight->field_18);
+	CopyInt(tbuff, &pLight->_lcolor);
 	CopyInt(tbuff, &pLight->_lunx);
 	CopyInt(tbuff, &pLight->_luny);
 	CopyInt(tbuff, &pLight->_lunr);
@@ -805,7 +839,7 @@ void LoadVision(int i)
 	CopyInt(tbuff, &pVision->_lid);
 	CopyInt(tbuff, &pVision->_ldel);
 	CopyInt(tbuff, &pVision->_lunflag);
-	CopyInt(tbuff, &pVision->field_18);
+	CopyInt(tbuff, &pVision->_lcolor);
 	CopyInt(tbuff, &pVision->_lunx);
 	CopyInt(tbuff, &pVision->_luny);
 	CopyInt(tbuff, &pVision->_lunr);
@@ -964,6 +998,53 @@ void SaveGame()
 	dwLen = codec_get_encoded_len(tbuff - SaveBuff);
 	pfile_write_save_file(szName, SaveBuff, tbuff - SaveBuff, dwLen);
 	mem_free_dbg(SaveBuff);
+#ifdef PIXEL_LIGHT
+	int staticSize = 1;
+	for (std::map<int, std::vector<LightListStruct>>::iterator it = staticLights.begin(); it != staticLights.end(); ++it) {
+		staticSize += it->second.size() * 4 + 2;
+	}
+	//1 for map size, 4 for every vector element, 2 per vector for key and vector size
+	if (leveltype == DTYPE_TOWN) {
+		staticSize += 1;              // numlights
+		staticSize += MAXLIGHTS;      //size of lightactive
+		staticSize += 13 * numlights; // 13 ints in LightListStruct x numlights
+	}
+	staticSize *= 4;
+	dwLen = codec_get_encoded_len(staticSize);
+	SaveBuff = DiabloAllocPtr(dwLen);
+	tbuff = SaveBuff;
+	int num = staticLights.size();
+	CopyInt(&num, tbuff);
+
+	for (std::map<int, std::vector<LightListStruct>>::iterator it = staticLights.begin(); it != staticLights.end(); ++it) {
+		num = it->first;
+		CopyInt(&num, tbuff);
+		num = it->second.size();
+		CopyInt(&num, tbuff);
+		for (int j = 0; j < it->second.size(); j++) {
+			num = it->second[j]._lx;
+			CopyInt(&num, tbuff);
+			num = it->second[j]._ly;
+			CopyInt(&num, tbuff);
+			num = it->second[j]._lradius;
+			CopyInt(&num, tbuff);
+			num = it->second[j]._lcolor;
+			CopyInt(&num, tbuff);
+		}
+	}
+
+	if (leveltype == DTYPE_TOWN) {
+		WSave(numlights);
+		for (i = 0; i < MAXLIGHTS; i++)
+			BSave(lightactive[i]);
+		for (i = 0; i < numlights; i++)
+			SaveLighting(lightactive[i]);
+	}
+
+	dwLen = codec_get_encoded_len(tbuff - SaveBuff);
+	pfile_write_save_file("pixellight", SaveBuff, tbuff - SaveBuff, dwLen);
+	mem_free_dbg(SaveBuff);
+#endif
 	gbValidSaveFile = TRUE;
 	pfile_rename_temp_to_perm();
 	pfile_write_hero();
@@ -1504,7 +1585,7 @@ void SaveLighting(int i)
 	CopyInt(&pLight->_lid, tbuff);
 	CopyInt(&pLight->_ldel, tbuff);
 	CopyInt(&pLight->_lunflag, tbuff);
-	CopyInt(&pLight->field_18, tbuff);
+	CopyInt(&pLight->_lcolor, tbuff);
 	CopyInt(&pLight->_lunx, tbuff);
 	CopyInt(&pLight->_luny, tbuff);
 	CopyInt(&pLight->_lunr, tbuff);
@@ -1523,7 +1604,7 @@ void SaveVision(int i)
 	CopyInt(&pVision->_lid, tbuff);
 	CopyInt(&pVision->_ldel, tbuff);
 	CopyInt(&pVision->_lunflag, tbuff);
-	CopyInt(&pVision->field_18, tbuff);
+	CopyInt(&pVision->_lcolor, tbuff);
 	CopyInt(&pVision->_lunx, tbuff);
 	CopyInt(&pVision->_luny, tbuff);
 	CopyInt(&pVision->_lunr, tbuff);

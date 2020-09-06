@@ -540,8 +540,15 @@ BYTE *pfile_read(const char *pszName, DWORD *pdwLen)
 	if (archive == NULL)
 		app_fatal("Unable to open save file archive");
 
-	if (!SFileOpenFileEx(archive, FileName, 0, &save))
+	if (!SFileOpenFileEx(archive, FileName, 0, &save)) {
+#ifdef PIXEL_LIGHT
+		if (strcmp(FileName, "pixellight") == 0) {
+			pfile_SFileCloseArchive(archive);
+			return NULL;
+		} 
+#endif
 		app_fatal("Unable to open save file");
+	}
 
 	*pdwLen = SFileGetFileSize(save, NULL);
 	if (*pdwLen == 0)
