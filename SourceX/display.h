@@ -18,6 +18,8 @@ extern SDL_Palette *palette;
 extern SDL_Surface *pal_surface;
 extern unsigned int pal_surface_palette_version;
 
+extern SDL_Surface *game_surface;
+
 #ifdef USE_SDL1
 void SetVideoMode(int width, int height, int bpp, uint32_t flags);
 bool IsFullScreen();

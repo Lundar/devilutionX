@@ -110,13 +110,18 @@
 
 #define PALETTE_TRANSPARENT_COLOR 64
 
-#define SCREEN_WIDTH	640
-#define SCREEN_HEIGHT	480
+//#define SCREEN_WIDTH	640
+//#define SCREEN_HEIGHT	480
+#define SCREEN_WIDTH	1280
+#define SCREEN_HEIGHT	960
 
 #define PIXEL_LIGHT 1
 #ifdef USE_SDL1
 #undef PIXEL_LIGHT
 #endif
+
+#define TRANSPARENT_FLAT 1
+
 
 // If defined, use 32-bit colors instead of 8-bit [Default -> Undefined]
 //#define RGBMODE

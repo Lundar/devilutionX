@@ -135,7 +135,7 @@ void InitInv()
 void InvDrawSlotBack(int X, int Y, int W, int H)
 {
 	BYTE *dst;
-
+//TODO fixme
 	assert(gpBuffer);
 
 	dst = &gpBuffer[X + BUFFER_WIDTH * Y];
@@ -292,10 +292,11 @@ void DrawInv()
 			light_table_index = 0;
 			cel_transparency_active = TRUE;
 
-			pBuff = frame_width == INV_SLOT_SIZE_PX
-			    ? &gpBuffer[SCREENXY(RIGHT_PANEL_X + 197, SCREEN_Y)]
-			    : &gpBuffer[SCREENXY(RIGHT_PANEL_X + 183, SCREEN_Y)];
-			CelClippedBlitLightTrans(pBuff, pCursCels, frame, frame_width);
+			//pBuff = frame_width == INV_SLOT_SIZE_PX
+			//    ? &gpBuffer[SCREENXY(RIGHT_PANEL_X + 197, SCREEN_Y)]
+			//    : &gpBuffer[SCREENXY(RIGHT_PANEL_X + 183, SCREEN_Y)];
+			int invoff = (frame_width == INV_SLOT_SIZE_PX ?  197 : 183) ;
+			CelClippedBlitLightTrans(SCREEN_X + RIGHT_PANEL_X + invoff, SCREEN_Y + SCREEN_Y, pCursCels, frame, frame_width);
 
 			cel_transparency_active = FALSE;
 		}

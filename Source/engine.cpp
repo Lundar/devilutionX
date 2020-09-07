@@ -15,6 +15,8 @@
 
 DEVILUTION_BEGIN_NAMESPACE
 
+DWORD depalette(BYTE b);//TODO move this to a header
+
 char gbPixelCol;  // automap pixel color 8-bit (palette entry)
 BOOL gbRotateMap; // flip - if y < x
 int orgseed;
@@ -36,6 +38,438 @@ const int RndInc = 1;
  */
 const int RndMult = 0x015A4E35;
 
+int calcCelHeight(BYTE *pRLEBytes, int nDataSize, int nWidth){
+
+	int i, w, height=0;//height may need to start at 1?
+	BYTE width;
+	BYTE *src;
+
+	assert(pRLEBytes != NULL);
+
+	src = pRLEBytes;
+	w = nWidth;
+
+	for (; src != &pRLEBytes[nDataSize]; height++) {
+		for (i = w; i;) {
+			width = *src++;
+			if (!(width & 0x80)) {
+				i -= width;
+				src += width;
+			} else {
+				width = -(char)width;
+				i -= width;
+			}
+		}
+	}
+	return height;
+}
+
+int calcCl2Height(BYTE *pRLEBytes, int nDataSize, int nWidth){
+	
+	int height = 0;
+	int w;
+	char width;
+	BYTE fill;
+	BYTE *src;
+
+	src = pRLEBytes;
+	w = nWidth;
+
+	while (nDataSize) {
+		width = *src++;
+		nDataSize--;
+		if (width < 0) {
+			width = -width;
+			if (width > 65) {
+				width -= 65;
+				nDataSize--;
+				fill = *src++;
+				
+				w -= width;
+				while (width) {
+					//*dst = fill;
+					//dst++;
+					width--;
+				}
+				if (!w) {
+					w = nWidth;
+					height++;
+					//dst -= BUFFER_WIDTH + w;
+				}
+				continue;
+				
+			} else {
+				nDataSize -= width;
+				//if (dst < gpBufEnd && dst > gpBufStart) {
+					w -= width;
+					while (width) {
+						//*dst = *src;
+						src++;
+						//dst++;
+						width--;
+					}
+					if (!w) {
+						w = nWidth;
+						height++;
+						//dst -= BUFFER_WIDTH + w;
+					}
+					continue;
+				//} else {
+				//	src += width;
+				//}
+			}
+		}
+		while (width) {
+			if (width > w) {
+				//dst += w;
+				width -= w;
+				w = 0;
+			} else {
+				//dst += width;
+				w -= width;
+				width = 0;
+			}
+			if (!w) {
+				w = nWidth;
+				height++;
+				//dst -= BUFFER_WIDTH + w;
+			}
+		}
+	}
+	
+	return height;
+}
+
+SDL_Surface* loadCel(BYTE *pRLEBytes, int nDataSize, int nWidth){
+	int height = calcCelHeight(pRLEBytes,nDataSize,nWidth);
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, nWidth, height, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	
+	int i, w;
+	BYTE width;
+	BYTE *src;
+	DWORD* dst = (DWORD *)tmp->pixels;
+	dst += (nWidth * (height-1));
+
+	assert(pRLEBytes != NULL);
+
+	src = pRLEBytes;
+	w = nWidth;
+
+	for (; src != &pRLEBytes[nDataSize]; dst -= nWidth + w) {
+		for (i = w; i;) {
+			width = *src++;
+			if (!(width & 0x80)) {
+				i -= width;
+				//TODO bounds checking??
+				for(int x=0;x<width;x++)
+					dst[x]=depalette(src[x]);
+				
+				src += width;
+				dst += width;
+			} else {
+				width = -(char)width;
+				dst += width;
+				i -= width;
+			}
+		}
+	}	
+	
+	return tmp;
+}
+
+SDL_Surface* loadCelRed(BYTE *pRLEBytes, int nDataSize, int nWidth, char light){
+	int height = calcCelHeight(pRLEBytes,nDataSize,nWidth);
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, nWidth, height, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	
+	int w, idx;
+	BYTE *tbl;
+	DWORD* dst = (DWORD *)tmp->pixels;
+	dst += (nWidth * (height-1));
+
+	assert(pRLEBytes != NULL);
+
+
+	idx = light4flag ? 1024 : 4096;
+	if (light == 2)
+		idx += 256; // gray colors
+	if (light >= 4)
+		idx += (light - 1) << 8;
+
+	BYTE width;
+	BYTE *end;
+
+	tbl = &pLightTbl[idx];
+	end = &pRLEBytes[nDataSize];
+//TODO maybe change this to match other cel funcs?
+	for (; pRLEBytes != end; dst -= nWidth + nWidth) {
+		for (w = nWidth; w;) {
+			width = *pRLEBytes++;
+			if (!(width & 0x80)) {
+				w -= width;
+				while (width) {
+					*dst = depalette(tbl[*pRLEBytes]);
+					pRLEBytes++;
+					dst++;
+					width--;
+				}
+			} else {
+				width = -(char)width;
+				dst += width;
+				w -= width;
+			}
+		}
+	}
+	
+	return tmp;
+}
+
+SDL_Surface* loadCelLight(BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *tbl){
+	int height = calcCelHeight(pRLEBytes,nDataSize,nWidth);
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, nWidth, height, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	
+	int i, w;
+	BYTE width;
+	BYTE *src;
+	DWORD* dst = (DWORD *)tmp->pixels;
+	dst += (nWidth * (height-1));
+
+	assert(pRLEBytes != NULL);
+
+	src = pRLEBytes;
+	if (tbl == NULL)
+		tbl = &pLightTbl[light_table_index * 256];
+	w = nWidth;
+
+	for (; src != &pRLEBytes[nDataSize]; dst -= nWidth + w) {
+		for (i = w; i;) {
+			width = *src++;
+			if (!(width & 0x80)) {
+				i -= width;
+				//TODO bounds checking??
+				for(int x=0;x<width;x++)
+					dst[x]=depalette(tbl[src[x]]);
+				
+				src += width;
+				dst += width;
+			} else {
+				width = -(char)width;
+				dst += width;
+				i -= width;
+			}
+		}
+	}
+	
+	return tmp;
+}
+
+SDL_Surface* loadCelOutline(BYTE *pRLEBytes, int nDataSize, int nWidth, char col){
+	int height = calcCelHeight(pRLEBytes,nDataSize,nWidth);
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, nWidth+2, height+2, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	
+	int i, w;
+	BYTE width;
+	BYTE *src;
+	DWORD* dst = (DWORD *)tmp->pixels;
+	dst += ((tmp->pitch/4) * (height));
+
+	assert(pRLEBytes != NULL);
+
+	src = pRLEBytes;
+	w = nWidth;
+
+	for (; src != &pRLEBytes[nDataSize]; dst -= (tmp->pitch/4) + w) {
+		for (i = w; i;) {
+			width = *src++;
+			if (!(width & 0x80)) {
+				i -= width;
+				//TODO bounds checking??
+				for(int x=0;x<width;x++){
+					if(src[x]){
+						dst[x+1]=depalette(col);
+						dst[x-1]=depalette(col);
+						dst[x+(tmp->pitch/4)]=depalette(col);
+						dst[x-(tmp->pitch/4)]=depalette(col);
+					}
+				}
+				
+				src += width;
+				dst += width;
+			} else {
+				width = -(char)width;
+				dst += width;
+				i -= width;
+			}
+		}
+	}	
+	
+	return tmp;
+}
+
+SDL_Surface* loadCl2(BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE* tbl = NULL){
+	int height = calcCl2Height(pRLEBytes,nDataSize,nWidth);
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, nWidth, height, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	
+	int w;
+	char width;
+	BYTE fill;
+	BYTE *src;
+	DWORD* dst = (DWORD *)tmp->pixels;
+	dst += ((tmp->pitch/4) * (height-1));
+
+	src = pRLEBytes;
+	w = nWidth;
+
+	while (nDataSize) {
+		width = *src++;
+		nDataSize--;
+		if (width < 0) {
+			width = -width;
+			if (width > 65) {
+				width -= 65;
+				nDataSize--;
+				if(tbl)
+					fill = tbl[*src++];
+				else
+					fill = *src++;
+				w -= width;
+				while (width) {
+					*dst = depalette(fill);
+					dst++;
+					width--;
+				}
+				if (!w) {
+					w = nWidth;
+					dst -= (tmp->pitch/4) + w;
+				}
+				continue;
+				
+			} else {
+				nDataSize -= width;
+				w -= width;
+				while (width) {
+					if(tbl)
+						*dst = depalette(tbl[*src]);
+					else
+						*dst = depalette(*src);
+					src++;
+					dst++;
+					width--;
+				}
+				if (!w) {
+					w = nWidth;
+					dst -= (tmp->pitch/4) + w;
+				}
+				continue;
+			}
+		}
+		while (width) {
+			if (width > w) {
+				dst += w;
+				width -= w;
+				w = 0;
+			} else {
+				dst += width;
+				w -= width;
+				width = 0;
+			}
+			if (!w) {
+				w = nWidth;
+				dst -= (tmp->pitch/4) + w;
+			}
+		}
+	}
+	
+	return tmp;
+}
+
+SDL_Surface* loadCl2Outline(BYTE *pRLEBytes, int nDataSize, int nWidth, char col){
+	int height = calcCl2Height(pRLEBytes,nDataSize,nWidth);
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, nWidth+2, height+2, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	
+	int w;
+	char width;
+	BYTE fill;
+	BYTE *src;
+	int twidth =(tmp->pitch/4);
+	DWORD* dst = (DWORD *)tmp->pixels;
+	dst += (twidth * (height)) + 1;
+
+	src = pRLEBytes;
+	w = nWidth;
+
+	while (nDataSize) {
+		width = *src++;
+		nDataSize--;
+		if (width < 0) {
+			width = -width;
+			if (width > 65) {
+				width -= 65;
+				nDataSize--;
+				fill = *src++;
+				w -= width;
+				while (width) {
+					dst[-twidth] = depalette(col);
+					dst[twidth] = depalette(col);
+					dst++;
+					width--;
+				}
+				if (!w) {
+					w = nWidth;
+					dst -= twidth + w;
+				}
+				continue;
+				
+			} else {
+				nDataSize -= width;
+				w -= width;
+				while (width) {
+					dst[-1] = depalette(col);
+					dst[1] = depalette(col);
+					dst[-twidth] = depalette(col);
+					dst[twidth] = depalette(col);
+					src++;
+					dst++;
+					width--;
+				}
+				if (!w) {
+					w = nWidth;
+					dst -= twidth + w;
+				}
+				continue;
+			}
+		}
+		while (width) {
+			if (width > w) {
+				dst += w;
+				width -= w;
+				w = 0;
+			} else {
+				dst += width;
+				w -= width;
+				width = 0;
+			}
+			if (!w) {
+				w = nWidth;
+				dst -= twidth + w;
+			}
+		}
+	}
+	
+	return tmp;
+}
+
 /**
  * @brief Blit CEL sprite to the back buffer at the given coordinates
  * @param sx Back buffer coordinate
@@ -46,7 +480,18 @@ const int RndMult = 0x015A4E35;
  */
 void CelDraw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 {
-	CelBlitFrame(&gpBuffer[sx + BUFFER_WIDTH * sy], pCelBuff, nCel, nWidth);
+	int nDataSize;
+	BYTE* pRLEBytes = CelGetFrame(pCelBuff, nCel, &nDataSize);
+	
+	SDL_Surface* tmp = loadCel(pRLEBytes,nDataSize,nWidth);
+	//TODO cache this surface
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -56,7 +501,8 @@ void CelDraw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
  * @param nCel CEL frame number
  * @param nWidth Width of sprite
  */
-void CelBlitFrame(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
+//DEPRICATED
+/*void CelBlitFrame(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
 {
 	int nDataSize;
 	BYTE *pRLEBytes;
@@ -66,7 +512,7 @@ void CelBlitFrame(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
 
 	pRLEBytes = CelGetFrame(pCelBuff, nCel, &nDataSize);
 	CelBlitSafe(pBuff, pRLEBytes, nDataSize, nWidth);
-}
+}*/
 
 /**
  * @brief Same as CelDraw but with the option to skip parts of the top and bottom of the sprite
@@ -81,16 +527,19 @@ void CelClippedDraw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 	BYTE *pRLEBytes;
 	int nDataSize;
 
-	assert(gpBuffer);
 	assert(pCelBuff != NULL);
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
 
-	CelBlitSafe(
-	    &gpBuffer[sx + BUFFER_WIDTH * sy],
-	    pRLEBytes,
-	    nDataSize,
-	    nWidth);
+	SDL_Surface* tmp = loadCel(pRLEBytes,nDataSize,nWidth);
+	//TODO cache this surface
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -104,18 +553,25 @@ void CelClippedDraw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 void CelDrawLight(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, BYTE *tbl)
 {
 	int nDataSize;
-	BYTE *pDecodeTo, *pRLEBytes;
+	BYTE *pRLEBytes;
 
-	assert(gpBuffer);
 	assert(pCelBuff != NULL);
 
 	pRLEBytes = CelGetFrame(pCelBuff, nCel, &nDataSize);
-	pDecodeTo = &gpBuffer[sx + BUFFER_WIDTH * sy];
 
+	SDL_Surface* tmp;
 	if (light_table_index || tbl)
-		CelBlitLightSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth, tbl);
+		tmp = loadCelLight(pRLEBytes,nDataSize,nWidth,tbl);
 	else
-		CelBlitSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth);
+		tmp = loadCel(pRLEBytes,nDataSize,nWidth);
+	
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -129,18 +585,25 @@ void CelDrawLight(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, BYTE *tb
 void CelClippedDrawLight(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 {
 	int nDataSize;
-	BYTE *pRLEBytes, *pDecodeTo;
+	BYTE *pRLEBytes;
 
-	assert(gpBuffer);
 	assert(pCelBuff != NULL);
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
-	pDecodeTo = &gpBuffer[sx + BUFFER_WIDTH * sy];
 
+	SDL_Surface* tmp;
 	if (light_table_index)
-		CelBlitLightSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth, NULL);
+		tmp = loadCelLight(pRLEBytes,nDataSize,nWidth,NULL);
 	else
-		CelBlitSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth);
+		tmp = loadCel(pRLEBytes,nDataSize,nWidth);
+	
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -155,44 +618,21 @@ void CelClippedDrawLight(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 void CelDrawLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, char light)
 {
 	int nDataSize, w, idx;
-	BYTE *pRLEBytes, *dst, *tbl;
+	BYTE *pRLEBytes, *dst;
 
-	assert(gpBuffer);
 	assert(pCelBuff != NULL);
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
-	dst = &gpBuffer[sx + BUFFER_WIDTH * sy];
 
-	idx = light4flag ? 1024 : 4096;
-	if (light == 2)
-		idx += 256; // gray colors
-	if (light >= 4)
-		idx += (light - 1) << 8;
-
-	BYTE width;
-	BYTE *end;
-
-	tbl = &pLightTbl[idx];
-	end = &pRLEBytes[nDataSize];
-
-	for (; pRLEBytes != end; dst -= BUFFER_WIDTH + nWidth) {
-		for (w = nWidth; w;) {
-			width = *pRLEBytes++;
-			if (!(width & 0x80)) {
-				w -= width;
-				while (width) {
-					*dst = tbl[*pRLEBytes];
-					pRLEBytes++;
-					dst++;
-					width--;
-				}
-			} else {
-				width = -(char)width;
-				dst += width;
-				w -= width;
-			}
-		}
-	}
+	SDL_Surface* tmp = loadCelRed(pRLEBytes,nDataSize,nWidth, light);
+	//TODO cache this surface
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -202,6 +642,7 @@ void CelDrawLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, char 
  * @param nDataSize Size of CEL in bytes
  * @param nWidth Width of sprite
  */
+//DEPRICATED
 void CelBlitSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 {
 	int i, w;
@@ -245,7 +686,8 @@ void CelBlitSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
  */
 void CelClippedDrawSafe(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 {
-	BYTE *pRLEBytes;
+	CelClippedDraw(sx,sy,pCelBuff,nCel,nWidth);
+	/*BYTE *pRLEBytes;
 	int nDataSize;
 
 	assert(gpBuffer);
@@ -257,7 +699,7 @@ void CelClippedDrawSafe(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 	    &gpBuffer[sx + BUFFER_WIDTH * sy],
 	    pRLEBytes,
 	    nDataSize,
-	    nWidth);
+	    nWidth);*/
 }
 
 /**
@@ -268,7 +710,8 @@ void CelClippedDrawSafe(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
  * @param nWidth Width of sprite
  * @param tbl Palette translation table
  */
-void CelBlitLightSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *tbl)
+//DEPRICATED
+/*void CelBlitLightSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *tbl)
 {
 	int i, w;
 	BYTE width;
@@ -322,7 +765,7 @@ void CelBlitLightSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidt
 			}
 		}
 	}
-}
+}*/
 
 /**
  * @brief Same as CelBlitLightSafe, with transparancy applied
@@ -331,7 +774,7 @@ void CelBlitLightSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidt
  * @param nDataSize Size of CEL in bytes
  * @param nWidth Width of sprite
  */
-void CelBlitLightTransSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
+/*void CelBlitLightTransSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 {
 	int w;
 	BOOL shift;
@@ -412,7 +855,7 @@ void CelBlitLightTransSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int 
 			}
 		}
 	}
-}
+}*/
 
 /**
  * @brief Same as CelBlitLightTransSafe
@@ -421,8 +864,9 @@ void CelBlitLightTransSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int 
  * @param nCel CEL frame number
  * @param nWidth Width of sprite
  */
-void CelClippedBlitLightTrans(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
+void CelClippedBlitLightTrans(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 {
+	//TODO flat vs dither transparency support
 	int nDataSize;
 	BYTE *pRLEBytes;
 
@@ -430,12 +874,24 @@ void CelClippedBlitLightTrans(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
 
-	if (cel_transparency_active)
-		CelBlitLightTransSafe(pBuff, pRLEBytes, nDataSize, nWidth);
-	else if (light_table_index)
-		CelBlitLightSafe(pBuff, pRLEBytes, nDataSize, nWidth, NULL);
+	SDL_Surface* tmp;
+	if (cel_transparency_active){
+		tmp = loadCelLight(pRLEBytes,nDataSize,nWidth,NULL);
+		SDL_SetSurfaceAlphaMod(tmp,128);
+	}else if (light_table_index)
+		tmp = loadCelLight(pRLEBytes,nDataSize,nWidth,NULL);
 	else
-		CelBlitSafe(pBuff, pRLEBytes, nDataSize, nWidth);
+		tmp = loadCel(pRLEBytes,nDataSize,nWidth);
+	
+	
+	
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -449,7 +905,8 @@ void CelClippedBlitLightTrans(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth)
  */
 void CelDrawLightRedSafe(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, char light)
 {
-	int nDataSize, w, idx;
+	CelDrawLightRed(sx,sy,pCelBuff,nCel,nWidth,light);
+	/*int nDataSize, w, idx;
 	BYTE *pRLEBytes, *dst, *tbl;
 
 	assert(gpBuffer);
@@ -493,7 +950,7 @@ void CelDrawLightRedSafe(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, c
 				w -= width;
 			}
 		}
-	}
+	}*/
 }
 
 /**
@@ -506,6 +963,7 @@ void CelDrawLightRedSafe(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, c
  * @param nCel CEL frame number
  * @param nWidth Width of cel
  */
+//may be no need to fix this one
 void CelBlitWidth(BYTE *pBuff, int x, int y, int wdt, BYTE *pCelBuff, int nCel, int nWidth)
 {
 	BYTE *pRLEBytes, *dst, *end;
@@ -548,56 +1006,19 @@ void CelBlitWidth(BYTE *pBuff, int x, int y, int wdt, BYTE *pCelBuff, int nCel, 
  */
 void CelBlitOutline(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 {
-	int nDataSize, w;
-	BYTE *src, *dst, *end;
-	BYTE width;
+	int nDataSize;
+	BYTE* pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
+	
+	SDL_Surface* tmp = loadCelOutline(pRLEBytes,nDataSize,nWidth,col);
+	//TODO cache this surface
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h+1;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 
-	assert(pCelBuff != NULL);
-	assert(gpBuffer);
-
-	src = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
-	end = &src[nDataSize];
-	dst = &gpBuffer[sx + BUFFER_WIDTH * sy];
-
-	for (; src != end; dst -= BUFFER_WIDTH + nWidth) {
-		for (w = nWidth; w;) {
-			width = *src++;
-			if (!(width & 0x80)) {
-				w -= width;
-				if (dst < gpBufEnd && dst > gpBufStart) {
-					if (dst >= gpBufEnd - BUFFER_WIDTH) {
-						while (width) {
-							if (*src++) {
-								dst[-BUFFER_WIDTH] = col;
-								dst[-1] = col;
-								dst[1] = col;
-							}
-							dst++;
-							width--;
-						}
-					} else {
-						while (width) {
-							if (*src++) {
-								dst[-BUFFER_WIDTH] = col;
-								dst[-1] = col;
-								dst[1] = col;
-								dst[BUFFER_WIDTH] = col;
-							}
-							dst++;
-							width--;
-						}
-					}
-				} else {
-					src += width;
-					dst += width;
-				}
-			} else {
-				width = -(char)width;
-				dst += width;
-				w -= width;
-			}
-		}
-	}
 }
 
 /**
@@ -608,17 +1029,18 @@ void CelBlitOutline(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWid
  */
 void ENG_set_pixel(int sx, int sy, BYTE col)
 {
-	BYTE *dst;
-
-	assert(gpBuffer);
 
 	if (sy < 0 || sy >= SCREEN_HEIGHT + SCREEN_Y || sx < SCREEN_X || sx >= SCREEN_WIDTH + SCREEN_X)
 		return;
 
-	dst = &gpBuffer[sx + BUFFER_WIDTH * sy];
+	//dst = &gpBuffer[sx + BUFFER_WIDTH * sy];
 
-	if (dst < gpBufEnd && dst > gpBufStart)
-		*dst = col;
+	//if (dst < gpBufEnd && dst > gpBufStart)
+		//*dst = col;
+	//TODO probably want a sane bounds check here.
+	DWORD* dst = (DWORD*)game_surface->pixels;
+	dst = &dst[sx + (game_surface->pitch/4) * sy];
+	*dst = depalette(col);
 }
 
 /**
@@ -626,6 +1048,7 @@ void ENG_set_pixel(int sx, int sy, BYTE col)
  * @param sx Back buffer coordinate
  * @param sy Back buffer coordinate
  */
+//UNUSED
 void engine_draw_pixel(int sx, int sy)
 {
 	BYTE *dst;
@@ -911,12 +1334,16 @@ void Cl2Draw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 	assert(nCel > 0);
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
+	
+	SDL_Surface* tmp = loadCl2(pRLEBytes,nDataSize,nWidth);
 
-	Cl2BlitSafe(
-	    &gpBuffer[sx + BUFFER_WIDTH * sy],
-	    pRLEBytes,
-	    nDataSize,
-	    nWidth);
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -926,7 +1353,7 @@ void Cl2Draw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
  * @param nDataSize Size of CL2 in bytes
  * @param nWidth Width of sprite
  */
-void Cl2BlitSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
+/*void Cl2BlitSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 {
 	int w;
 	char width;
@@ -995,7 +1422,7 @@ void Cl2BlitSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 			}
 		}
 	}
-}
+}*/
 
 /**
  * @brief Blit a solid colder shape one pixel larger then the given sprite shape, to the back buffer at the given coordianates
@@ -1011,20 +1438,29 @@ void Cl2DrawOutline(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWid
 	int nDataSize;
 	BYTE *pRLEBytes;
 
-	assert(gpBuffer != NULL);
 	assert(pCelBuff != NULL);
 	assert(nCel > 0);
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
 
-	gpBufEnd -= BUFFER_WIDTH;
+	/*gpBufEnd -= BUFFER_WIDTH;
 	Cl2BlitOutlineSafe(
 	    &gpBuffer[sx + BUFFER_WIDTH * sy],
 	    pRLEBytes,
 	    nDataSize,
 	    nWidth,
 	    col);
-	gpBufEnd += BUFFER_WIDTH;
+	gpBufEnd += BUFFER_WIDTH;*/
+	
+	SDL_Surface* tmp = loadCl2Outline(pRLEBytes,nDataSize,nWidth,col);
+
+	SDL_Rect rect;
+	rect.x=sx-1;
+	rect.y=sy-tmp->h+1;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -1130,20 +1566,22 @@ void Cl2DrawLightTbl(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, char 
 	assert(nCel > 0);
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
-	pDecodeTo = &gpBuffer[sx + BUFFER_WIDTH * sy];
 
 	idx = light4flag ? 1024 : 4096;
 	if (light == 2)
 		idx += 256; // gray colors
 	if (light >= 4)
 		idx += (light - 1) << 8;
+	
+	SDL_Surface* tmp = loadCl2(pRLEBytes,nDataSize,nWidth,&pLightTbl[idx]);
 
-	Cl2BlitLightSafe(
-	    pDecodeTo,
-	    pRLEBytes,
-	    nDataSize,
-	    nWidth,
-	    &pLightTbl[idx]);
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -1154,7 +1592,7 @@ void Cl2DrawLightTbl(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, char 
  * @param nWidth With of CL2 sprite
  * @param pTable Light color table
  */
-void Cl2BlitLightSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *pTable)
+/*void Cl2BlitLightSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth, BYTE *pTable)
 {
 	int w;
 	char width;
@@ -1224,7 +1662,7 @@ void Cl2BlitLightSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidt
 			}
 		}
 	}
-}
+}*/
 
 /**
  * @brief Blit CL2 sprite, and apply lighting, to the back buffer at the given coordinates
@@ -1244,12 +1682,21 @@ void Cl2DrawLight(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 	assert(nCel > 0);
 
 	pRLEBytes = CelGetFrameClipped(pCelBuff, nCel, &nDataSize);
-	pDecodeTo = &gpBuffer[sx + BUFFER_WIDTH * sy];
 
-	if (light_table_index)
-		Cl2BlitLightSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth, &pLightTbl[light_table_index * 256]);
-	else
-		Cl2BlitSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth);
+	//if (light_table_index)
+	//	Cl2BlitLightSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth, &pLightTbl[light_table_index * 256]);
+	//else
+	//	Cl2BlitSafe(pDecodeTo, pRLEBytes, nDataSize, nWidth);
+	
+	SDL_Surface* tmp = loadCl2(pRLEBytes,nDataSize,nWidth, (light_table_index!=0 ? (&pLightTbl[light_table_index * 256]) : NULL));
+
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**

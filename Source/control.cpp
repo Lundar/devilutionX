@@ -562,6 +562,8 @@ void ClearPanel()
 	pinfoflag = FALSE;
 }
 
+DWORD depalette(BYTE b);//TODO move this to a header
+
 void DrawPanelBox(int x, int y, int w, int h, int sx, int sy)
 {
 	int nSrcOff, nDstOff;
@@ -572,14 +574,31 @@ void DrawPanelBox(int x, int y, int w, int h, int sx, int sy)
 	nDstOff = sx + BUFFER_WIDTH * sy;
 
 	int hgt;
-	BYTE *src, *dst;
+	BYTE *src;
 
 	src = &pBtmBuff[nSrcOff];
-	dst = &gpBuffer[nDstOff];
 
-	for (hgt = h; hgt; hgt--, src += PANEL_WIDTH, dst += BUFFER_WIDTH) {
-		memcpy(dst, src, w);
+	//TODO cache this
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
+	if(tmp == NULL)
+		ErrSdl();
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	DWORD* dst = (DWORD *)tmp->pixels;
+
+	for (hgt = h; hgt; hgt--, src += PANEL_WIDTH, dst += (tmp->pitch/4)) {
+		for(int i=0;i<w;i++)
+			dst[i]=depalette(src[i]);
 	}
+	
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
+	
 }
 
 /**

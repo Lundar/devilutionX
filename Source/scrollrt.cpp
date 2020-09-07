@@ -9,8 +9,8 @@ int light_table_index;
 #ifdef PIXEL_LIGHT
 int testvar1 = 0; // 1 forces light system/ui drawing
 int testvar2 = 8; // changing player's light radius (2 + testvar2)
-int testvar3 = 1; // enable pixel light
-int testvar4 = 1; // 0 = normal light, 1 = fully lit
+int testvar3 = 0; // enable pixel light
+int testvar4 = 0; // 0 = normal light, 1 = fully lit
 int testvar5 = 3; // change texture blend mode
 std::map<int,std::vector<LightListStruct> > staticLights;
 int redrawLights = 0;
@@ -529,11 +529,10 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy);
  */
 static void drawCell(int x, int y, int sx, int sy)
 {
-	BYTE *dst;
 	MICROS *pMap;
 	DWORD level_cel_block;
+	int ty = sy;
 
-	dst = &gpBuffer[sx + sy * BUFFER_WIDTH];
 	pMap = &dpiece_defs_map_2[x][y];
 	level_piece_id = dPiece[x][y];
 	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
@@ -542,14 +541,14 @@ static void drawCell(int x, int y, int sx, int sy)
 		level_cel_block = pMap->mt[2 * i];
 		if (level_cel_block != 0) {
 			arch_draw_type = i == 0 ? 1 : 0;
-			RenderTile(dst,level_cel_block);
+			RenderTile(level_cel_block,sx,ty);
 		}
 		level_cel_block = pMap->mt[2 * i + 1];
 		if (level_cel_block != 0) {
 			arch_draw_type = i == 0 ? 2 : 0;
-			RenderTile(dst + TILE_WIDTH / 2, level_cel_block);
+			RenderTile(level_cel_block,sx + TILE_WIDTH / 2,ty);
 		}
-		dst -= BUFFER_WIDTH * TILE_HEIGHT;
+		ty -= TILE_HEIGHT;
 	}
 	cel_foliage_active = false;
 }
@@ -577,12 +576,14 @@ static void drawFloor(int x, int y, int sx, int sy)
 	arch_draw_type = 1; // Left
 	level_cel_block = dpiece_defs_map_2[x][y].mt[0];
 	if (level_cel_block != 0) {
-		RenderTile(dst, level_cel_block);
+		//RenderTile(dst,level_cel_block);
+		RenderTile(level_cel_block,sx,sy);
 	}
 	arch_draw_type = 2; // Right
 	level_cel_block = dpiece_defs_map_2[x][y].mt[1];
 	if (level_cel_block != 0) {
-		RenderTile(dst + TILE_WIDTH / 2, level_cel_block);
+		//RenderTile(dst + TILE_WIDTH / 2,level_cel_block);
+		RenderTile(level_cel_block, sx + TILE_WIDTH / 2, sy);
 	}
 }
 
@@ -769,7 +770,7 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy)
 		bArch = dSpecial[sx][sy];
 		if (bArch != 0) {
 			cel_transparency_active = TransList[bMap];
-			CelClippedBlitLightTrans(&gpBuffer[dx + BUFFER_WIDTH * dy], pSpecialCels, bArch, 64);
+			CelClippedBlitLightTrans(dx, dy, pSpecialCels, bArch, 64);
 		}
 	} else {
 		// Tree leafs should always cover player when entering or leaving the tile,
@@ -778,7 +779,7 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy)
 		if (sx > 0 && sy > 0 && dy > TILE_HEIGHT + SCREEN_Y) {
 			bArch = dSpecial[sx - 1][sy - 1];
 			if (bArch != 0) {
-				CelBlitFrame(&gpBuffer[dx + BUFFER_WIDTH * (dy - TILE_HEIGHT)], pSpecialCels, bArch, 64);
+				CelDraw(dx,dy - TILE_HEIGHT, pSpecialCels, bArch, 64);
 			}
 		}
 	}
@@ -1195,8 +1196,6 @@ void DrawView(int StartX, int StartY)
 	DrawManaFlask();
 }
 
-extern SDL_Surface *pal_surface;
-
 /**
  * @brief Render the whole screen black
  */
@@ -1205,6 +1204,7 @@ void ClearScreenBuffer()
 	lock_buf(3);
 
 	assert(pal_surface != NULL);
+	assert(game_surface != NULL);
 
 	SDL_Rect SrcRect = {
 		SCREEN_X,
@@ -1213,6 +1213,7 @@ void ClearScreenBuffer()
 		SCREEN_HEIGHT,
 	};
 	SDL_FillRect(pal_surface, &SrcRect, 0);
+	SDL_FillRect(game_surface, &SrcRect, 0);
 
 	unlock_buf(3);
 }
@@ -1520,7 +1521,7 @@ void DrawAndBlit()
 	scrollrt_draw_cursor_back_buffer();
 	unlock_buf(0);
 	RenderPresent();
-
+	
 	drawhpflag = FALSE;
 	drawmanaflag = FALSE;
 	drawbtnflag = FALSE;

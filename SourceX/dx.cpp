@@ -34,6 +34,9 @@ SDL_Surface *renderer_texture_surface = NULL;
 
 /** 8-bit surface wrapper around #gpBuffer */
 SDL_Surface *pal_surface;
+	
+/** 32-bit surface for main game (to replace pal_surface) */
+SDL_Surface *game_surface;
 
 #ifdef PIXEL_LIGHT
 struct POINT {
@@ -134,6 +137,12 @@ static void dx_create_back_buffer()
 	if (pal_surface == NULL) {
 		ErrSdl();
 	}
+	
+	game_surface = SDL_CreateRGBSurfaceWithFormat(0, BUFFER_WIDTH, BUFFER_HEIGHT, 32, SDL_PIXELFORMAT_RGBA8888);
+	if (game_surface == NULL) {
+		ErrSdl();
+	}
+	SDL_SetSurfaceBlendMode(game_surface,SDL_BLENDMODE_NONE);
 
 	gpBuffer = (BYTE *)pal_surface->pixels;
 
@@ -250,6 +259,12 @@ void dx_cleanup()
 		return;
 	SDL_FreeSurface(pal_surface);
 	pal_surface = NULL;
+	
+	if (game_surface == NULL)
+		return;
+	SDL_FreeSurface(game_surface);
+	game_surface = NULL;
+	
 	SDL_FreePalette(palette);
 	SDL_FreeSurface(renderer_texture_surface);
 	SDL_DestroyTexture(texture);
@@ -295,7 +310,14 @@ void InitPalette()
 
 void BltFast(SDL_Rect *src_rect, SDL_Rect *dst_rect)
 {
-	Blit(pal_surface, src_rect, dst_rect);
+
+	if(!(SDL_GetKeyboardState(NULL)[SDL_SCANCODE_RETURN])){
+		Blit(pal_surface, src_rect, dst_rect);
+		Blit(game_surface, src_rect, dst_rect);
+	}else{
+		Blit(game_surface, src_rect, dst_rect);
+		Blit(pal_surface, src_rect, dst_rect);
+	}
 }
 
 void Blit(SDL_Surface *src, SDL_Rect *src_rect, SDL_Rect *dst_rect)
