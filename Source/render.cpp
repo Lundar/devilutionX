@@ -189,7 +189,7 @@ __attribute__((no_sanitize("shift-base")))
 SDL_Surface* loadTile(DWORD level_cel_block){
 	
 	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, TILE_WIDTH, TILE_HEIGHT, 32, SDL_PIXELFORMAT_RGBA8888);
-	//SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
 	SDL_FillRect(tmp, NULL, 0x00000000);
 	
 	int i, j;
@@ -206,7 +206,7 @@ SDL_Surface* loadTile(DWORD level_cel_block){
 	tbl = &pLightTbl[256 * light_table_index];
 
 	mask = &SolidMask[TILE_HEIGHT - 1];
-
+#ifndef TRANSPARENT_FLAT 
 	if (cel_transparency_active) {
 		if (arch_draw_type == 0) {
 			mask = &WallMask[TILE_HEIGHT - 1];
@@ -223,7 +223,9 @@ SDL_Surface* loadTile(DWORD level_cel_block){
 				mask = &RightMask[TILE_HEIGHT - 1];
 			}
 		}
-	} else if (arch_draw_type && cel_foliage_active) {
+	} else 
+#endif
+		    if (arch_draw_type && cel_foliage_active) {
 		if (tile != RT_TRANSPARENT) {
 			return tmp;
 		}
@@ -317,6 +319,12 @@ void RenderTile(DWORD level_cel_block, int sx, int sy)
 {
 	SDL_Surface* tmp = loadTile(level_cel_block);
 	//TODO cache this surface
+	#ifdef TRANSPARENT_FLAT
+	if(cel_transparency_active){
+		SDL_SetSurfaceAlphaMod(tmp,128);
+	}
+	#endif
+	
 	SDL_Rect rect;
 	rect.x=sx;
 	rect.y=sy-tmp->h;

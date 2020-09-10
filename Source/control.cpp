@@ -563,7 +563,23 @@ void ClearPanel()
 }
 
 DWORD depalette(BYTE b);//TODO move this to a header
+//TODO move this to engine
+SDL_Surface* loadControlCel(BYTE* src, int w, int h, int cw, bool trans = true){
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
+	if(tmp == NULL)
+		ErrSdl();
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	DWORD* dst = (DWORD *)tmp->pixels;
 
+	for (int hgt = h; hgt; hgt--, src += cw, dst += (tmp->pitch/4)) {
+		for(int i=0;i<w;i++)
+			if(trans || src[i])
+				dst[i]=depalette(src[i]);
+	}
+	return tmp;
+}
+	
 void DrawPanelBox(int x, int y, int w, int h, int sx, int sy)
 {
 	int nSrcOff, nDstOff;
@@ -579,17 +595,7 @@ void DrawPanelBox(int x, int y, int w, int h, int sx, int sy)
 	src = &pBtmBuff[nSrcOff];
 
 	//TODO cache this
-	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
-	if(tmp == NULL)
-		ErrSdl();
-	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
-	SDL_FillRect(tmp, NULL, 0x00000000);
-	DWORD* dst = (DWORD *)tmp->pixels;
-
-	for (hgt = h; hgt; hgt--, src += PANEL_WIDTH, dst += (tmp->pitch/4)) {
-		for(int i=0;i<w;i++)
-			dst[i]=depalette(src[i]);
-	}
+	SDL_Surface* tmp = loadControlCel(src,w,h,PANEL_WIDTH);
 	
 	SDL_Rect rect;
 	rect.x=sx;
@@ -618,16 +624,26 @@ void SetFlaskHeight(BYTE *pCelBuff, int min, int max, int sx, int sy)
 	assert(gpBuffer);
 
 	nSrcOff = 88 * min;
-	nDstOff = sx + BUFFER_WIDTH * sy;
+	//nDstOff = sx + BUFFER_WIDTH * sy;
 	w = max - min;
 
-	BYTE *src, *dst;
+	BYTE *src;
 
 	src = &pCelBuff[nSrcOff];
-	dst = &gpBuffer[nDstOff];
+	//dst = &gpBuffer[nDstOff];
 
-	for (; w; w--, src += 88, dst += BUFFER_WIDTH)
-		memcpy(dst, src, 88);
+	//for (; w; w--, src += 88, dst += BUFFER_WIDTH)
+	//	memcpy(dst, src, 88);
+	
+	SDL_Surface* tmp = loadControlCel(src,88,max-min,88);
+	
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
 }
 
 /**
@@ -641,22 +657,33 @@ void SetFlaskHeight(BYTE *pCelBuff, int min, int max, int sx, int sy)
  * @param nDstOff Offset of the target buffer where the bytes will start to be copied to.
  * @param h How many lines of the source buffer that will be copied.
  */
-void DrawFlask(BYTE *pCelBuff, int w, int nSrcOff, BYTE *pBuff, int nDstOff, int h)
+void DrawFlask(BYTE *pCelBuff, int w, int nSrcOff, int sx, int sy, int h)
 {
 	int wdt, hgt;
 	BYTE *src, *dst;
 
 	src = &pCelBuff[nSrcOff];
-	dst = &pBuff[nDstOff];
+	//dst = &pBuff[nDstOff];
 
-	for (hgt = h; hgt; hgt--, src += w - 59, dst += BUFFER_WIDTH - 59) {
+	/*for (hgt = h; hgt; hgt--, src += w - 59, dst += BUFFER_WIDTH - 59) {
 		for (wdt = 59; wdt; wdt--) {
 			if (*src)
 				*dst = *src;
 			src++;
 			dst++;
 		}
-	}
+	}*/
+	
+	SDL_Surface* tmp = loadControlCel(src,59,h,w,false);
+	
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
+	
 }
 
 /**
@@ -678,9 +705,9 @@ void DrawLifeFlask()
 		filled = 11;
 	filled += 2;
 
-	DrawFlask(pLifeBuff, 88, 88 * 3 + 13, gpBuffer, SCREENXY(PANEL_LEFT + 109, PANEL_TOP - 13), filled);
+	DrawFlask(pLifeBuff, 88, 88 * 3 + 13, PANEL_LEFT + 109 + SCREEN_X, PANEL_TOP - 13 + SCREEN_Y, filled);
 	if (filled != 13)
-		DrawFlask(pBtmBuff, PANEL_WIDTH, PANEL_WIDTH * (filled + 3) + 109, gpBuffer, SCREENXY(PANEL_LEFT + 109, PANEL_TOP - 13 + filled), 13 - filled);
+		DrawFlask(pBtmBuff, PANEL_WIDTH, PANEL_WIDTH * (filled + 3) + 109, PANEL_LEFT + 109 + SCREEN_X, PANEL_TOP - 13 + filled + SCREEN_Y, 13 - filled);
 }
 
 /**
@@ -716,9 +743,9 @@ void DrawManaFlask()
 		filled = 11;
 	filled += 2;
 
-	DrawFlask(pManaBuff, 88, 88 * 3 + 13, gpBuffer, SCREENXY(PANEL_LEFT + 475, PANEL_TOP - 13), filled);
+	DrawFlask(pManaBuff, 88, 88 * 3 + 13, PANEL_LEFT + 475 + SCREEN_X, PANEL_TOP - 13 + SCREEN_Y, filled);
 	if (filled != 13)
-		DrawFlask(pBtmBuff, PANEL_WIDTH, PANEL_WIDTH * (filled + 3) + 475, gpBuffer, SCREENXY(PANEL_LEFT + 475, PANEL_TOP - 13 + filled), 13 - filled);
+		DrawFlask(pBtmBuff, PANEL_WIDTH, PANEL_WIDTH * (filled + 3) + 475, PANEL_LEFT + 475 + SCREEN_X, PANEL_TOP - 13 + filled + SCREEN_Y, 13 - filled);
 }
 
 void control_update_life_mana()
