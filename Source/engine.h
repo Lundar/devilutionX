@@ -63,7 +63,9 @@ inline BYTE *CelGetFrameClipped(BYTE *pCelBuff, int nCel, int *nDataSize)
 	return pRLEBytes + nDataStart;
 }
 
+DWORD depalette(BYTE b);
 void CelDraw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth);
+void CelDrawView(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth,SDL_Rect* rect);
 void CelBlitFrame(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth);
 void CelClippedDraw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth);
 void CelDrawLight(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, BYTE *tbl);

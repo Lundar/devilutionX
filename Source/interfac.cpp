@@ -46,28 +46,29 @@ void DrawCutscene()
 	lock_buf(1);
 	CelDraw(PANEL_X, 480 + SCREEN_Y - 1, sgpBackCel, 1, 640);
 
-	for (i = 0; i < sgdwProgress; i++) {
-		DrawProgress(
-		    BarPos[progress_id][0] + i + PANEL_X,
-		    BarPos[progress_id][1] + SCREEN_Y,
-		    progress_id);
-	}
+
+	DrawProgress(
+		BarPos[progress_id][0] + PANEL_X,
+		BarPos[progress_id][1] + SCREEN_Y,
+		sgdwProgress,
+		progress_id);
+	
 
 	unlock_buf(1);
 	force_redraw = 255;
 	scrollrt_draw_game_screen(FALSE);
 }
 
-void DrawProgress(int screen_x, int screen_y, int progress_id)
+void DrawProgress(int screen_x, int screen_y, int progress, int progress_id)
 {
-	BYTE *dst;
-	int i;
-
-	dst = &gpBuffer[screen_x + BUFFER_WIDTH * screen_y];
-	for (i = 0; i < 22; i++) {
-		*dst = BarColor[progress_id];
-		dst += BUFFER_WIDTH;
-	}
+	
+	SDL_Rect rect;
+	rect.x=screen_x;
+	rect.y=screen_y;
+	rect.w=progress-1;
+	rect.h=21;
+	SDL_FillRect(game_surface,&rect,depalette(BarColor[progress_id]));
+	
 }
 
 void ShowProgress(unsigned int uMsg)

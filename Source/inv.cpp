@@ -30,7 +30,7 @@ int sgdwLastTime; // check name
  */
 const InvXY InvRect[] = {
 	// clang-format off
-	//  X,   Y
+	//  X,   Y, W (Width correction)
 	{ RIGHT_PANEL + 132,  31 }, // helmet
 	{ RIGHT_PANEL + 160,  31 }, // helmet
 	{ RIGHT_PANEL + 132,  59 }, // helmet
@@ -86,16 +86,16 @@ const InvXY InvRect[] = {
 	{ RIGHT_PANEL + 218, 308 }, // inv row 3
 	{ RIGHT_PANEL + 247, 308 }, // inv row 3
 	{ RIGHT_PANEL + 276, 308 }, // inv row 3
-	{ RIGHT_PANEL + 17,  336 }, // inv row 4
-	{ RIGHT_PANEL + 46,  336 }, // inv row 4
-	{ RIGHT_PANEL + 74,  336 }, // inv row 4
-	{ RIGHT_PANEL + 103, 336 }, // inv row 4
-	{ RIGHT_PANEL + 131, 336 }, // inv row 4
-	{ RIGHT_PANEL + 160, 336 }, // inv row 4
-	{ RIGHT_PANEL + 189, 336 }, // inv row 4
-	{ RIGHT_PANEL + 218, 336 }, // inv row 4
-	{ RIGHT_PANEL + 247, 336 }, // inv row 4
-	{ RIGHT_PANEL + 276, 336 }, // inv row 4
+	{ RIGHT_PANEL + 17,  337 }, // inv row 4
+	{ RIGHT_PANEL + 46,  337 }, // inv row 4
+	{ RIGHT_PANEL + 75,  337 }, // inv row 4
+	{ RIGHT_PANEL + 104, 337 }, // inv row 4
+	{ RIGHT_PANEL + 133, 337 }, // inv row 4
+	{ RIGHT_PANEL + 162, 337 }, // inv row 4
+	{ RIGHT_PANEL + 191, 337 }, // inv row 4
+	{ RIGHT_PANEL + 220, 337 }, // inv row 4
+	{ RIGHT_PANEL + 249, 337 }, // inv row 4
+	{ RIGHT_PANEL + 278, 337 }, // inv row 4
 	{ PANEL_LEFT + 205, PANEL_TOP + 33 }, // belt
 	{ PANEL_LEFT + 234, PANEL_TOP + 33 }, // belt
 	{ PANEL_LEFT + 263, PANEL_TOP + 33 }, // belt
@@ -132,41 +132,111 @@ void InitInv()
 	drawsbarflag = FALSE;
 }
 
-void InvDrawSlotBack(int X, int Y, int W, int H)
+void InvDrawSlotBack(SDL_Surface* surf, int X, int Y, int W, int H)
 {
-	BYTE *dst;
-//TODO fixme
-	assert(gpBuffer);
-
-	dst = &gpBuffer[X + BUFFER_WIDTH * Y];
-
-	int wdt, hgt;
-	BYTE pix;
-
-	for (hgt = H; hgt; hgt--, dst -= BUFFER_WIDTH + W) {
-		for (wdt = W; wdt; wdt--) {
-			pix = *dst;
+	BYTE *src;
+	DWORD* dst;
+	
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, W, H, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	
+	
+	src = surf->pixels;
+	src += X-RIGHT_PANEL_X + surf->pitch * (Y-SCREEN_Y-H+1);
+	dst = tmp->pixels;
+	//dst += tmp->pitch * (tmp->h-1);
+	
+	/*for (int hgt = H; hgt; hgt--, src -= surf->pitch + W, dst-=tmp->pitch + W) {
+		for (int wdt = W; wdt; wdt--) {
+			BYTE pix = *src;
 			if (pix >= PAL16_BLUE) {
 				if (pix <= PAL16_BLUE + 15)
 					pix -= PAL16_BLUE - PAL16_BEIGE;
 				else if (pix >= PAL16_GRAY)
 					pix -= PAL16_GRAY - PAL16_BEIGE;
 			}
-			*dst++ = pix;
+			src++;
+			*dst++ = 0xFFFFFFFF;//depalette(pix);
 		}
-	}
+	}*/
+	for(int hgt=0;hgt<H;hgt++)
+		for(int wdt=0;wdt<W;wdt++){
+			BYTE pix = src[wdt+hgt*surf->pitch];
+			if (pix >= PAL16_BLUE) {
+				if (pix <= PAL16_BLUE + 15)
+					pix -= PAL16_BLUE - PAL16_BEIGE;
+				else if (pix >= PAL16_GRAY)
+					pix -= PAL16_GRAY - PAL16_BEIGE;
+			}
+			dst[wdt+(hgt*tmp->pitch/4)] = depalette(pix);
+		}
+	
+	//SDL_FillRect(tmp,NULL,0xFFFFFFFF);
+	
+	SDL_Rect rect;
+	rect.x=X;
+	rect.y=Y-H;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
+}
+
+int calcCelHeight(BYTE *pRLEBytes, int nDataSize, int nWidth);
+
+SDL_Surface* loadIndexCel(BYTE *pRLEBytes, int nDataSize, int nWidth){
+	int height = calcCelHeight(pRLEBytes,nDataSize,nWidth);
+	SDL_Surface* tmp = SDL_CreateRGBSurfaceWithFormat(0, nWidth, height, 8, SDL_PIXELFORMAT_INDEX8);
+	SDL_SetSurfaceBlendMode(tmp,SDL_BLENDMODE_BLEND);
+	SDL_FillRect(tmp, NULL, 0x00000000);
+	
+	int i, w;
+	BYTE width;
+	BYTE *src;
+	BYTE* dst = tmp->pixels;
+	dst += (nWidth * (height-1));
+
+	assert(pRLEBytes != NULL);
+
+	src = pRLEBytes;
+	w = nWidth;
+
+	for (; src != &pRLEBytes[nDataSize]; dst -= nWidth + w) {
+		for (i = w; i;) {
+			width = *src++;
+			if (!(width & 0x80)) {
+				i -= width;
+				//TODO bounds checking??
+				for(int x=0;x<width;x++)
+					dst[x]=src[x];
+				
+				src += width;
+				dst += width;
+			} else {
+				width = -(char)width;
+				dst += width;
+				i -= width;
+			}
+		}
+	}	
+	
+	return tmp;
 }
 
 void DrawInv()
 {
 	BOOL invtest[NUM_INV_GRID_ELEM];
 	int frame, frame_width, color, screen_x, screen_y, i, j, ii;
-	BYTE *pBuff;
 
+	int nDataSize;
+	BYTE* pRLEBytes = CelGetFrame(pInvCels, 1, &nDataSize);
+	SDL_Surface* inv_surface = loadIndexCel(pRLEBytes,nDataSize,SPANEL_WIDTH);
+	//TODO setPalette
+		
 	CelDraw(RIGHT_PANEL_X, 351 + SCREEN_Y, pInvCels, 1, SPANEL_WIDTH);
 
 	if (plr[myplr].InvBody[INVLOC_HEAD]._itype != ITYPE_NONE) {
-		InvDrawSlotBack(RIGHT_PANEL_X + 133, 59 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 2 * INV_SLOT_SIZE_PX);
+		InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 133, 59 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 2 * INV_SLOT_SIZE_PX);
 
 		frame = plr[myplr].InvBody[INVLOC_HEAD]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
@@ -190,7 +260,7 @@ void DrawInv()
 	}
 
 	if (plr[myplr].InvBody[INVLOC_RING_LEFT]._itype != ITYPE_NONE) {
-		InvDrawSlotBack(RIGHT_PANEL_X + 48, 205 + SCREEN_Y, INV_SLOT_SIZE_PX, INV_SLOT_SIZE_PX);
+		InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 48, 205 + SCREEN_Y, INV_SLOT_SIZE_PX, INV_SLOT_SIZE_PX);
 
 		frame = plr[myplr].InvBody[INVLOC_RING_LEFT]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
@@ -214,7 +284,7 @@ void DrawInv()
 	}
 
 	if (plr[myplr].InvBody[INVLOC_RING_RIGHT]._itype != ITYPE_NONE) {
-		InvDrawSlotBack(RIGHT_PANEL_X + 249, 205 + SCREEN_Y, INV_SLOT_SIZE_PX, INV_SLOT_SIZE_PX);
+		InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 249, 205 + SCREEN_Y, INV_SLOT_SIZE_PX, INV_SLOT_SIZE_PX);
 
 		frame = plr[myplr].InvBody[INVLOC_RING_RIGHT]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
@@ -238,7 +308,7 @@ void DrawInv()
 	}
 
 	if (plr[myplr].InvBody[INVLOC_AMULET]._itype != ITYPE_NONE) {
-		InvDrawSlotBack(RIGHT_PANEL_X + 205, 60 + SCREEN_Y, INV_SLOT_SIZE_PX, INV_SLOT_SIZE_PX);
+		InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 205, 60 + SCREEN_Y, INV_SLOT_SIZE_PX, INV_SLOT_SIZE_PX);
 
 		frame = plr[myplr].InvBody[INVLOC_AMULET]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
@@ -262,7 +332,7 @@ void DrawInv()
 	}
 
 	if (plr[myplr].InvBody[INVLOC_HAND_LEFT]._itype != ITYPE_NONE) {
-		InvDrawSlotBack(RIGHT_PANEL_X + 17, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
+		InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 17, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
 
 		frame = plr[myplr].InvBody[INVLOC_HAND_LEFT]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
@@ -288,13 +358,10 @@ void DrawInv()
 		}
 
 		if (plr[myplr].InvBody[INVLOC_HAND_LEFT]._iLoc == ILOC_TWOHAND) {
-			InvDrawSlotBack(RIGHT_PANEL_X + 247, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
+			InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 247, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
 			light_table_index = 0;
 			cel_transparency_active = TRUE;
 
-			//pBuff = frame_width == INV_SLOT_SIZE_PX
-			//    ? &gpBuffer[SCREENXY(RIGHT_PANEL_X + 197, SCREEN_Y)]
-			//    : &gpBuffer[SCREENXY(RIGHT_PANEL_X + 183, SCREEN_Y)];
 			int invoff = (frame_width == INV_SLOT_SIZE_PX ?  197 : 183) ;
 			CelClippedBlitLightTrans(SCREEN_X + RIGHT_PANEL_X + invoff, SCREEN_Y + SCREEN_Y, pCursCels, frame, frame_width);
 
@@ -302,7 +369,7 @@ void DrawInv()
 		}
 	}
 	if (plr[myplr].InvBody[INVLOC_HAND_RIGHT]._itype != ITYPE_NONE) {
-		InvDrawSlotBack(RIGHT_PANEL_X + 247, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
+		InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 247, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
 
 		frame = plr[myplr].InvBody[INVLOC_HAND_RIGHT]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
@@ -329,7 +396,7 @@ void DrawInv()
 	}
 
 	if (plr[myplr].InvBody[INVLOC_CHEST]._itype != ITYPE_NONE) {
-		InvDrawSlotBack(RIGHT_PANEL_X + 133, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
+		InvDrawSlotBack(inv_surface, RIGHT_PANEL_X + 133, 160 + SCREEN_Y, 2 * INV_SLOT_SIZE_PX, 3 * INV_SLOT_SIZE_PX);
 
 		frame = plr[myplr].InvBody[INVLOC_CHEST]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
@@ -355,7 +422,7 @@ void DrawInv()
 	for (i = 0; i < NUM_INV_GRID_ELEM; i++) {
 		invtest[i] = FALSE;
 		if (plr[myplr].InvGrid[i] != 0) {
-			InvDrawSlotBack(
+			InvDrawSlotBack(inv_surface, 
 			    InvRect[i + SLOTXY_INV_FIRST].X + SCREEN_X,
 			    InvRect[i + SLOTXY_INV_FIRST].Y + SCREEN_Y - 1,
 			    INV_SLOT_SIZE_PX,
@@ -400,6 +467,7 @@ void DrawInv()
 			}
 		}
 	}
+	SDL_FreeSurface(inv_surface);
 }
 
 void DrawInvBelt()
@@ -418,7 +486,7 @@ void DrawInvBelt()
 			continue;
 		}
 
-		InvDrawSlotBack(InvRect[i + SLOTXY_BELT_FIRST].X + SCREEN_X, InvRect[i + SLOTXY_BELT_FIRST].Y + SCREEN_Y - 1, 28, 28);
+		//TODOInvDrawSlotBack(InvRect[i + SLOTXY_BELT_FIRST].X + SCREEN_X, InvRect[i + SLOTXY_BELT_FIRST].Y + SCREEN_Y - 1, 28, 28);
 		frame = plr[myplr].SpdList[i]._iCurs + CURSOR_FIRSTITEM;
 		frame_width = InvItemWidth[frame];
 

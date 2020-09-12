@@ -495,6 +495,34 @@ void CelDraw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 }
 
 /**
+ * @brief Blit CEL sprite to the back buffer at the given coordinates but do not blit outside view rect
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ * @param pCelBuff Cel data
+ * @param nCel CEL frame number
+ * @param nWidth Width of sprite
+ * @param view Rectangle to stay within
+ */
+void CelDrawView(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, SDL_Rect* view)
+{
+	int nDataSize;
+	BYTE* pRLEBytes = CelGetFrame(pCelBuff, nCel, &nDataSize);
+	
+	SDL_Surface* tmp = loadCel(pRLEBytes,nDataSize,nWidth);
+	//TODO cache this surface
+	SDL_Rect rect;
+	rect.x=sx;
+	rect.y=sy-tmp->h;
+	rect.w=tmp->w;
+	rect.h=tmp->h;
+	SDL_SetClipRect(game_surface,view);
+	SDL_BlitSurface(tmp, NULL, game_surface, &rect);
+	SDL_FreeSurface(tmp);
+	SDL_SetClipRect(game_surface,NULL);
+	
+}
+
+/**
  * @brief Blit a given CEL frame to the given buffer
  * @param pBuff Target buffer
  * @param pCelBuff Cel data

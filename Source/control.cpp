@@ -1799,6 +1799,17 @@ void RedBack()
 			}
 		}
 	}
+	//TODO
+	/*SDL_Rect rect;
+	rect.x=SCREEN_X;
+	rect.y=SCREEN_Y;
+	rect.w=SCREEN_WIDTH;
+	rect.h=VIEWPORT_HEIGHT;
+	if (leveltype != DTYPE_HELL) {
+		SDL_FillRect(game_surface,&rect,depallet());
+	} else {
+	
+	}*/
 }
 
 char GetSBookTrans(int ii, BOOL townok)

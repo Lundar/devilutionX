@@ -92,17 +92,24 @@ void DrawQTextBack()
 
 void PrintQTextChr(int sx, int sy, BYTE *pCelBuff, int nCel)
 {
-	BYTE *pStart, *pEnd;
+	//BYTE *pStart, *pEnd;
 
 	/// ASSERT: assert(gpBuffer);
-	pStart = gpBufStart;
+	/*pStart = gpBufStart;
 	gpBufStart = &gpBuffer[BUFFER_WIDTH * (49 + SCREEN_Y)];
 	pEnd = gpBufEnd;
-	gpBufEnd = &gpBuffer[BUFFER_WIDTH * (309 + SCREEN_Y)];
-	CelDraw(sx, sy, pCelBuff, nCel, 22);
+	gpBufEnd = &gpBuffer[BUFFER_WIDTH * (309 + SCREEN_Y)];*/
+	
+	SDL_Rect rect;
+	rect.x=0;
+	rect.y=49+SCREEN_Y;
+	rect.w=game_surface->w;
+	rect.h=260;
+	
+	CelDrawView(sx, sy, pCelBuff, nCel, 22, &rect);
 
-	gpBufStart = pStart;
-	gpBufEnd = pEnd;
+	//gpBufStart = pStart;
+	//gpBufEnd = pEnd;
 }
 
 void DrawQText()

@@ -209,13 +209,22 @@ void gmenu_draw_menu_item(TMenuItem *pItem, int y)
 
 void gmenu_clear_buffer(int x, int y, int width, int height)
 {
-	BYTE *i;
+	/*BYTE *i;
 
 	i = gpBuffer + BUFFER_WIDTH * y + x;
 	while (height--) {
 		memset(i, 205, width);
 		i -= BUFFER_WIDTH;
-	}
+	}*/
+	
+	SDL_Rect rect;
+	rect.x=x;
+	rect.y=y-height;
+	rect.w=BUFFER_WIDTH;
+	rect.h=height;
+
+	SDL_FillRect(game_surface,&rect,depalette(205));
+	
 }
 
 int gmenu_get_lfont(TMenuItem *pItem)

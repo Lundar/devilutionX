@@ -120,7 +120,7 @@
 #undef PIXEL_LIGHT
 #endif
 
-//#define TRANSPARENT_FLAT 1
+#define TRANSPARENT_FLAT 1
 
 
 // If defined, use 32-bit colors instead of 8-bit [Default -> Undefined]

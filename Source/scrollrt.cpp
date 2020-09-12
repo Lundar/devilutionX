@@ -10,7 +10,7 @@ int light_table_index;
 int testvar1 = 0; // 1 forces light system/ui drawing
 int testvar2 = 8; // changing player's light radius (2 + testvar2)
 int testvar3 = 0; // enable pixel light
-int testvar4 = 0; // 0 = normal light, 1 = fully lit
+int testvar4 = 1; // 0 = normal light, 1 = fully lit
 int testvar5 = 3; // change texture blend mode
 std::map<int,std::vector<LightListStruct> > staticLights;
 int redrawLights = 0;

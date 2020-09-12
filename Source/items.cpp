@@ -2959,7 +2959,7 @@ void PrintUString(int x, int y, BOOL cjustflag, char *str, int col)
 
 void DrawULine(int y)
 {
-	assert(gpBuffer);
+	/*assert(gpBuffer);
 
 	int i;
 	BYTE *src, *dst;
@@ -2968,7 +2968,21 @@ void DrawULine(int y)
 	dst = &gpBuffer[BUFFER_WIDTH * (y * 12 + 198) + 26 + RIGHT_PANEL_X - SPANEL_WIDTH];
 
 	for (i = 0; i < 3; i++, src += BUFFER_WIDTH, dst += BUFFER_WIDTH)
-		memcpy(dst, src, 266);
+		memcpy(dst, src, 266);*/
+	
+	SDL_Rect src;
+	src.x=26 + RIGHT_PANEL - SPANEL_WIDTH + SCREEN_X;
+	src.y=25 + SCREEN_Y;
+	src.w=266;
+	src.h=3;
+	
+	SDL_Rect dst;
+	dst.x=26 + RIGHT_PANEL_X - SPANEL_WIDTH;
+	dst.y=y * 12 + 198;
+	dst.w=266;
+	dst.h=3;
+
+	SDL_BlitSurface(game_surface,&src,game_surface,&dst);
 }
 
 void DrawUniqueInfo()
